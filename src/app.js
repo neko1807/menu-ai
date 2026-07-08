@@ -57,6 +57,38 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+app.post('/api/ai/recipe', (req, res) => {
+  const ingredients = Array.isArray(req.body?.ingredients) ? req.body.ingredients : [];
+
+  res.json({
+    recipeIdea: {
+      provider: 'fallback',
+      title: 'เมนูสำรองของ menu-ai',
+      summary: 'ระบบยังเตรียมเมนูสำรองให้ใช้งานได้',
+      estimatedCookingTime: 15,
+      difficulty: 'ง่าย',
+      basedOn: [],
+      usedIngredients: ingredients
+        .map((ingredient) => String(ingredient || '').trim())
+        .filter(Boolean)
+        .map((name) => ({
+          name,
+          reason: 'วัตถุดิบที่ผู้ใช้มีอยู่',
+        })),
+      missingIngredients: [],
+      substitutionSuggestions: [],
+      steps: [
+        'เตรียมวัตถุดิบทั้งหมดให้พร้อม',
+        'ปรุงหรือผัดตามความถนัด',
+        'ปรับรสแล้วจัดเสิร์ฟ',
+      ],
+      tips: [
+        'หากต้องการผลลัพธ์ละเอียดขึ้น ให้ลองใหม่อีกครั้งเมื่อระบบพร้อม',
+      ],
+    },
+  });
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/ai', aiRoutes);

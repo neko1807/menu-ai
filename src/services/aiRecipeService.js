@@ -1,5 +1,16 @@
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta';
-const GEMINI_MODEL = process.env.GEMINI_RECIPE_MODEL || 'gemini-2.5-flash';
+
+function resolveGeminiModel() {
+  const configuredModel = String(process.env.GEMINI_RECIPE_MODEL || '').trim();
+
+  if (!configuredModel || configuredModel === 'gemini-3.5-flash') {
+    return 'gemini-2.5-flash';
+  }
+
+  return configuredModel;
+}
+
+const GEMINI_MODEL = resolveGeminiModel();
 
 function buildRecipePrompt({ ingredients, notes }) {
   return [

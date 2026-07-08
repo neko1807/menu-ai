@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: menu-ai-api
+    env: node
+    plan: free
+    autoDeploy: true
+    healthCheckPath: /health
+    buildCommand: npm ci --include=dev && npx prisma generate && npx prisma migrate deploy && npm run prisma:seed
+    startCommand: npm start
+    disk:
+      name: menu-ai-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        value: file:/var/data/dev.db
+      - key: CORS_ORIGIN
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: JWT_ACCESS_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 30d
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_RECIPE_MODEL
+        value: gemini-3.5-flash
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: USER_EMAIL
+        sync: false
+      - key: USER_PASSWORD
+        sync: false

@@ -159,56 +159,56 @@ async function generateRecipeIdea({ ingredients, notes }) {
     return fallback;
   }
 
-  const response = await fetch(
-    `${GEMINI_API_URL}/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(apiKey)}`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              {
-                text: buildRecipePrompt({
-                  ingredients: cleanedIngredients,
-                  notes,
-                }),
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          responseSchema: buildOutputSchema(),
-          temperature: 0.7,
-        },
-      }),
-    },
-  );
-
-  const responseBody = await response.json();
-
-  if (!response.ok) {
-    return {
-      ...fallback,
-      provider: 'fallback',
-      providerError: responseBody?.error?.message || 'Gemini request failed.',
-    };
-  }
-
-  const candidateText = extractCandidateText(responseBody);
-  if (!candidateText) {
-    return {
-      ...fallback,
-      provider: 'fallback',
-      providerError: 'Gemini response did not include text output.',
-    };
-  }
-
   try {
+    const response = await fetch(
+      `${GEMINI_API_URL}/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                {
+                  text: buildRecipePrompt({
+                    ingredients: cleanedIngredients,
+                    notes,
+                  }),
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            responseSchema: buildOutputSchema(),
+            temperature: 0.7,
+          },
+        }),
+      },
+    );
+
+    const responseBody = await response.json();
+
+    if (!response.ok) {
+      return {
+        ...fallback,
+        provider: 'fallback',
+        providerError: responseBody?.error?.message || 'Gemini request failed.',
+      };
+    }
+
+    const candidateText = extractCandidateText(responseBody);
+    if (!candidateText) {
+      return {
+        ...fallback,
+        provider: 'fallback',
+        providerError: 'Gemini response did not include text output.',
+      };
+    }
+
     return {
       provider: 'gemini',
       ...parseGeminiJson(candidateText),
@@ -217,7 +217,7 @@ async function generateRecipeIdea({ ingredients, notes }) {
     return {
       ...fallback,
       provider: 'fallback',
-      providerError: `Gemini JSON parse failed: ${error.message}`,
+      providerError: `Gemini unavailable: ${error.message}`,
     };
   }
 }

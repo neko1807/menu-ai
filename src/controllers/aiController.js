@@ -1,5 +1,3 @@
-const { generateRecipeIdea } = require('../services/aiRecipeService');
-
 function buildEmergencyRecipeIdea(message, ingredients = []) {
   const cleanedIngredients = Array.isArray(ingredients)
     ? ingredients.map((ingredient) => String(ingredient || '').trim()).filter(Boolean)
@@ -8,7 +6,7 @@ function buildEmergencyRecipeIdea(message, ingredients = []) {
   return {
     provider: 'fallback',
     title: 'เมนูสำรองของ menu-ai',
-    summary: message || 'ระบบกำลังใช้โหมดสำรอง เพราะการสร้างสูตรอัตโนมัติไม่พร้อมใช้งานชั่วคราว',
+    summary: message || 'ระบบยังเตรียมเมนูสำรองให้ใช้งานได้',
     estimatedCookingTime: 15,
     difficulty: 'ง่าย',
     basedOn: [],
@@ -29,26 +27,12 @@ function buildEmergencyRecipeIdea(message, ingredients = []) {
   };
 }
 
-async function createRecipeIdea(req, res, next) {
-  try {
-    const ingredients = Array.isArray(req.body?.ingredients) ? req.body.ingredients : [];
-    const notes = String(req.body?.notes || '').trim();
+async function createRecipeIdea(req, res) {
+  const ingredients = Array.isArray(req.body?.ingredients) ? req.body.ingredients : [];
 
-    const result = await generateRecipeIdea({ ingredients, notes });
-
-    return res.json({
-      recipeIdea: result,
-    });
-  } catch (error) {
-    console.error('AI recipe generation failed:', error);
-
-    return res.status(200).json({
-      recipeIdea: buildEmergencyRecipeIdea(
-        'ระบบสร้างสูตรขัดข้องชั่วคราว แต่ยังแสดงเมนูสำรองให้ใช้งานได้',
-        req.body?.ingredients,
-      ),
-    });
-  }
+  return res.json({
+    recipeIdea: buildEmergencyRecipeIdea('ระบบยังเตรียมเมนูสำรองให้ใช้งานได้', ingredients),
+  });
 }
 
 module.exports = {

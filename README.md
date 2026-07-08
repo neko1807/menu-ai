@@ -19,7 +19,8 @@ Use Render for the API service.
    - `CORS_ORIGIN` to your Vercel URL, for example `https://your-app.vercel.app`
    - `JWT_ACCESS_SECRET`
    - `JWT_REFRESH_SECRET`
-   - `GEMINI_API_KEY` if you use the AI route
+   - `GEMINI_API_KEY` for the AI route
+   - `GEMINI_RECIPE_MODEL` if you want to override the default `gemini-2.5-flash`
    - `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `USER_EMAIL`, `USER_PASSWORD`
 4. Keep the default disk-backed SQLite setup unless you plan to move to Postgres later.
 5. Render health check: `/health`

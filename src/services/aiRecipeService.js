@@ -1,5 +1,5 @@
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta';
-const GEMINI_MODEL = process.env.GEMINI_RECIPE_MODEL || 'gemini-3.5-flash';
+const GEMINI_MODEL = process.env.GEMINI_RECIPE_MODEL || 'gemini-2.5-flash';
 
 function buildRecipePrompt({ ingredients, notes }) {
   return [
@@ -156,16 +156,20 @@ async function generateRecipeIdea({ ingredients, notes }) {
 
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!apiKey) {
-    return fallback;
+    return {
+      ...fallback,
+      providerError: 'GEMINI_API_KEY is not configured.',
+    };
   }
 
   try {
     const response = await fetch(
-      `${GEMINI_API_URL}/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+      `${GEMINI_API_URL}/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent`,
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
         },
         body: JSON.stringify({
           contents: [

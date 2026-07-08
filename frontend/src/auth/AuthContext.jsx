@@ -1,14 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { API_BASE_URL, AUTH_TOKEN_KEY } from './authConfig';
+import { parseJsonResponse } from '../lib/response';
 
 const AuthContext = createContext(null);
 
 async function parseJsonSafe(response) {
-  try {
-    return await response.json();
-  } catch {
-    return {};
-  }
+  return parseJsonResponse(response);
 }
 
 export function AuthProvider({ children }) {

@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react';
 import { AlertCircle, CheckCircle2, Clock3, Loader2, Sparkles, UtensilsCrossed } from 'lucide-react';
 import TopNav from '../components/layout/TopNav';
+import { API_BASE_URL } from '../auth/authConfig';
+import { parseJsonResponse } from '../lib/response';
+import { buildLocalRecipeIdea } from '../lib/recipeFallback';
 
 const menuFlow = [
   {
@@ -62,7 +65,7 @@ function UserHome() {
     setAiError('');
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/api/ai/recipe`, {
+      const response = await fetch(`${API_BASE_URL}/api/ai/recipe`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -73,15 +76,16 @@ function UserHome() {
         }),
       });
 
-      const data = await response.json();
+      const data = await parseJsonResponse(response);
 
-      if (!response.ok) {
+      if (!response.ok || !data.recipeIdea) {
         throw new Error(data.message || 'ไม่สามารถสร้างเมนูจาก AI ได้');
       }
 
       setAiRecipe(data.recipeIdea);
-    } catch (requestError) {
-      setAiError(requestError.message || 'เกิดข้อผิดพลาดในการสร้างเมนู');
+    } catch {
+      setAiRecipe(buildLocalRecipeIdea({ ingredients, notes: aiNotes }));
+      setAiError('');
     } finally {
       setAiLoading(false);
     }

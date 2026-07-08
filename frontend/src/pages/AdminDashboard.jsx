@@ -6,6 +6,8 @@ import IngredientManager from '../components/admin/IngredientManager';
 import RecipeManager from '../components/admin/RecipeManager';
 import TopNav from '../components/layout/TopNav';
 import { useAuth } from '../auth/AuthContext';
+import { API_BASE_URL } from '../auth/authConfig';
+import { parseJsonResponse } from '../lib/response';
 
 function AdminDashboard() {
   const { authFetch } = useAuth();
@@ -18,13 +20,13 @@ function AdminDashboard() {
   const loadAnalytics = useCallback(async () => {
     try {
       setRefreshing(true);
-      const response = await authFetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/api/admin/analytics`);
+      const response = await authFetch(`${API_BASE_URL}/api/admin/analytics`);
 
       if (!response.ok) {
         throw new Error('Failed to load analytics');
       }
 
-      const data = await response.json();
+      const data = await parseJsonResponse(response);
 
       setSnapshot({
         totals: data.totals || {},

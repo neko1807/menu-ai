@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Loader2, Pencil, Plus, Save, Trash2, X } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
+import { API_BASE_URL } from '../../auth/authConfig';
+import { parseJsonResponse } from '../../lib/response';
 
 const emptyIngredientRow = () => ({
   ingredientId: '',
@@ -38,8 +40,8 @@ function RecipeManager() {
 
     try {
       const [recipesResponse, ingredientsResponse] = await Promise.all([
-        authFetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/api/admin/recipes`),
-        authFetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/api/admin/ingredients`),
+        authFetch(`${API_BASE_URL}/api/admin/recipes`),
+        authFetch(`${API_BASE_URL}/api/admin/ingredients`),
       ]);
 
       if (!recipesResponse.ok) {
@@ -50,8 +52,8 @@ function RecipeManager() {
         throw new Error('Failed to load ingredients');
       }
 
-      const recipesData = await recipesResponse.json();
-      const ingredientsData = await ingredientsResponse.json();
+      const recipesData = await parseJsonResponse(recipesResponse);
+      const ingredientsData = await parseJsonResponse(ingredientsResponse);
 
       setRecipes(recipesData.recipes || []);
       setIngredients(ingredientsData.ingredients || []);
@@ -154,7 +156,7 @@ function RecipeManager() {
 
     try {
       const response = await authFetch(
-        `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/api/admin/recipes${editingRecipeId ? `/${editingRecipeId}` : ''}`,
+        `${API_BASE_URL}/api/admin/recipes${editingRecipeId ? `/${editingRecipeId}` : ''}`,
         {
           method: editingRecipeId ? 'PUT' : 'POST',
           headers: {
@@ -193,7 +195,7 @@ function RecipeManager() {
 
     try {
       const response = await authFetch(
-        `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/api/admin/recipes/${recipeId}`,
+        `${API_BASE_URL}/api/admin/recipes/${recipeId}`,
         {
           method: 'DELETE',
         },
@@ -450,11 +452,7 @@ function RecipeManager() {
 }
 
 async function safeJson(response) {
-  try {
-    return await response.json();
-  } catch {
-    return {};
-  }
+  return parseJsonResponse(response);
 }
 
 function formatRecipeType(type) {

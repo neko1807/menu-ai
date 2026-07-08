@@ -35,7 +35,7 @@ Use Vercel for the frontend.
 
 1. Create a new Vercel project from the same GitHub repo.
 2. Set the project root directory to `frontend`.
-3. Add `VITE_API_BASE_URL` with your Render API URL, for example `https://your-api.onrender.com`.
+3. Do not set `VITE_API_BASE_URL` for production. The frontend will call its own origin and the included Vercel `/api/*` rewrite will forward those requests to Render.
 4. Deploy.
 
 The included [`frontend/vercel.json`](frontend/vercel.json) keeps React Router working on refresh.

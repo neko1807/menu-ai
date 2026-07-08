@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Loader2, Plus, Sprout, Search } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
+import { API_BASE_URL } from '../../auth/authConfig';
+import { parseJsonResponse } from '../../lib/response';
 
 function IngredientManager() {
   const { authFetch } = useAuth();
@@ -17,12 +19,12 @@ function IngredientManager() {
     setError('');
 
     try {
-      const response = await authFetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/api/admin/ingredients`);
+      const response = await authFetch(`${API_BASE_URL}/api/admin/ingredients`);
       if (!response.ok) {
         throw new Error('Failed to load ingredients');
       }
 
-      const data = await response.json();
+      const data = await parseJsonResponse(response);
       setIngredients(data.ingredients || []);
     } catch {
       setError('ไม่สามารถโหลดรายการวัตถุดิบได้');
@@ -59,7 +61,7 @@ function IngredientManager() {
     setSuccess('');
 
     try {
-      const response = await authFetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/api/admin/ingredients`, {
+      const response = await authFetch(`${API_BASE_URL}/api/admin/ingredients`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -173,11 +175,7 @@ function IngredientManager() {
 }
 
 async function safeJson(response) {
-  try {
-    return await response.json();
-  } catch {
-    return {};
-  }
+  return parseJsonResponse(response);
 }
 
 export default IngredientManager;

@@ -1,7 +1,6 @@
 services:
   - type: web
     name: menu-ai-api
-    rootDir: menu-ai
     env: node
     plan: free
     autoDeploy: true

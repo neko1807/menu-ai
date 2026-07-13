@@ -1,65 +1,52 @@
-# Menu AI Deployment
+# Menu AI
 
-This repo has two parts:
+เว็บแอปหน้าเดียวสำหรับสร้างไอเดียเมนูอาหารจากวัตถุดิบที่ผู้ใช้มี โดยผลลัพธ์ทุกเมนูสร้างจาก Gemini
 
-- `frontend/` for the Vite React app
-- `src/` for the Express API
+## โครงสร้าง
 
-## GitHub
+- `frontend/` — React + Vite
+- `src/` — Express API
+- `POST /api/ai/recipe` — สร้างเมนูจากวัตถุดิบและเงื่อนไขเพิ่มเติม
+- `GET /health` — ตรวจสถานะ API
 
-Push the repo to GitHub as one monorepo. Keep both `frontend/` and the backend at the root.
+ระบบปัจจุบันทำงานแบบหน้าเดียวและไม่จัดเก็บข้อมูลผู้ใช้
 
-## Render
+หาก Gemini หรือ API key ไม่พร้อมใช้งาน หน้าเว็บจะแสดงข้อผิดพลาดโดยไม่สร้างผลลัพธ์สำรอง
+หลัง Gemini ตอบกลับ backend จะตรวจวัตถุดิบอีกครั้ง โดยเก็บเฉพาะรายการ input ไว้ในวัตถุดิบที่ใช้ได้ และย้ายรายการอื่นไปเป็นวัตถุดิบที่ต้องซื้อ
 
-Use Render for the API service.
+## ใช้งานในเครื่อง
 
-1. Create a new Render Web Service from this repository.
-2. Let Render read the included [`render.yaml`](render.yaml).
-3. Set these environment variables in Render:
-   - `CORS_ORIGIN` to your Vercel URL, for example `https://your-app.vercel.app`
-   - `JWT_ACCESS_SECRET`
-   - `JWT_REFRESH_SECRET`
-   - `GEMINI_API_KEY` for the AI route
-   - `GEMINI_RECIPE_MODEL` if you want to override the default `gemini-2.5-flash`
-   - `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `USER_EMAIL`, `USER_PASSWORD`
-4. Keep the default disk-backed SQLite setup unless you plan to move to Postgres later.
-5. Render health check: `/health`
+1. คัดลอก `.env.example` เป็น `.env` และใส่ `GEMINI_API_KEY`
+2. คัดลอก `frontend/.env.example` เป็น `frontend/.env`
+3. ติดตั้งและเปิด API:
 
-Important:
+   ```bash
+   npm install
+   npm run dev
+   ```
 
-- The seed script is safe to run on deploy. It skips reseeding if data already exists.
-- The refresh-token cookie is configured for cross-site requests, so the Vercel frontend can talk to Render.
+4. เปิด frontend ในอีก terminal:
 
-## Vercel
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
 
-Use Vercel for the frontend.
+Frontend จะเปิดที่ `http://localhost:5173` และเรียก API ที่ `http://localhost:3000`
 
-1. Create a new Vercel project from the same GitHub repo.
-2. Set the project root directory to `frontend`.
-3. Do not set `VITE_API_BASE_URL` for production. The frontend will call its own origin and the included Vercel `/api/*` rewrite will forward those requests to Render.
-4. Deploy.
+## Deploy
 
-The included [`frontend/vercel.json`](frontend/vercel.json) keeps React Router working on refresh.
+### Render API
 
-## UptimeRobot
+ใช้ `render.yaml` และกำหนด environment variables:
 
-Create a monitor for your Render API:
+- `CORS_ORIGIN` — URL ของ frontend เช่น `https://your-app.vercel.app`
+- `GEMINI_API_KEY` — API key ของ Gemini
+- `GEMINI_RECIPE_MODEL` — ไม่บังคับ ค่าเริ่มต้นคือ `gemini-2.5-flash`
 
-- Type: `HTTP(s)`
-- URL: `https://your-api.onrender.com/health`
-- Interval: 5 minutes is fine for free plans
+### Vercel frontend
 
-## Local env files
-
-Use these examples:
-
-- [`.env.example`](.env.example)
-- [`frontend/.env.example`](frontend/.env.example)
-
-## Recommended flow
-
-1. Push to GitHub.
-2. Deploy backend on Render.
-3. Copy the Render URL into `VITE_API_BASE_URL` on Vercel.
-4. Copy the Vercel URL into `CORS_ORIGIN` on Render.
-5. Add UptimeRobot to the Render `/health` endpoint.
+1. ตั้ง Root Directory เป็น `frontend`
+2. ไม่ต้องกำหนด `VITE_API_BASE_URL` ใน production เพราะ `frontend/vercel.json` ส่งต่อ `/api/*` ไปยัง Render
+3. หากเปลี่ยนชื่อ Render service ให้แก้ปลายทาง rewrite ใน `frontend/vercel.json`

@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react';
 import { AlertCircle, CheckCircle2, Clock3, Loader2, Sparkles, UtensilsCrossed } from 'lucide-react';
 import TopNav from '../components/layout/TopNav';
-import { API_BASE_URL } from '../auth/authConfig';
+import { API_BASE_URL } from '../config/api';
 import { parseJsonResponse } from '../lib/response';
-import { buildLocalRecipeIdea } from '../lib/recipeFallback';
 
 const menuFlow = [
   {
@@ -63,6 +62,7 @@ function UserHome() {
 
     setAiLoading(true);
     setAiError('');
+    setAiRecipe(null);
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/ai/recipe`, {
@@ -83,9 +83,9 @@ function UserHome() {
       }
 
       setAiRecipe(data.recipeIdea);
-    } catch {
-      setAiRecipe(buildLocalRecipeIdea({ ingredients, notes: aiNotes }));
-      setAiError('');
+    } catch (error) {
+      setAiRecipe(null);
+      setAiError(error.message || 'ไม่สามารถเชื่อมต่อ Gemini ได้ กรุณาลองใหม่');
     } finally {
       setAiLoading(false);
     }
@@ -97,7 +97,7 @@ function UserHome() {
   const tips = aiRecipe?.tips || [];
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(251,146,60,0.18),_transparent_24%),radial-gradient(circle_at_85%_0%,_rgba(217,119,6,0.18),_transparent_22%),linear-gradient(180deg,_#020617_0%,_#0f172a_44%,_#111827_100%)]">
+    <div id="top" className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(251,146,60,0.18),_transparent_24%),radial-gradient(circle_at_85%_0%,_rgba(217,119,6,0.18),_transparent_22%),linear-gradient(180deg,_#020617_0%,_#0f172a_44%,_#111827_100%)]">
       <TopNav />
 
       <main className="mx-auto flex max-w-[1200px] flex-col gap-6 px-6 py-8">
@@ -217,7 +217,7 @@ function UserHome() {
                 className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-500 to-orange-400 px-6 py-3 font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {aiLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
-                {aiLoading ? 'กำลังจัดเมนู...' : 'สร้างเมนูแนะนำ'}
+                {aiLoading ? 'กำลังขอเมนูจาก Gemini...' : 'สร้างเมนูด้วย Gemini'}
               </button>
 
               <div className="text-sm text-slate-400">
@@ -298,10 +298,7 @@ function UserHome() {
               </div>
             </div>
 
-            <p className="mt-4 text-xs text-slate-500">
-              แหล่งผลลัพธ์: {aiRecipe.provider === 'gemini' ? 'Gemini' : 'โหมดสำรองในเครื่อง'}
-              {aiRecipe.providerError ? ` • ${aiRecipe.providerError}` : ''}
-            </p>
+            <p className="mt-4 text-xs text-slate-500">แหล่งผลลัพธ์: Gemini</p>
           </section>
         ) : null}
       </main>

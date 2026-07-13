@@ -1,10 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const cookieParser = require('cookie-parser');
-const authRoutes = require('./routes/authRoutes');
-const adminRoutes = require('./routes/adminRoutes');
 const aiRoutes = require('./routes/aiRoutes');
-const recommendRoutes = require('./routes/recommendRoutes');
 
 const app = express();
 
@@ -29,7 +25,7 @@ function isOriginAllowed(origin, allowedOrigins) {
       return allowedOrigin === origin;
     }
 
-    const escapedPattern = allowedOrigin.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\\\*/g, '.*');
+    const escapedPattern = allowedOrigin.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
     return new RegExp(`^${escapedPattern}$`).test(origin);
   });
 }
@@ -47,20 +43,15 @@ app.use(
 
       return callback(new Error(`CORS origin not allowed: ${origin}`));
     },
-    credentials: true,
   }),
 );
-app.use(express.json());
-app.use(cookieParser());
+app.use(express.json({ limit: '20kb' }));
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-app.use('/api/auth', authRoutes);
-app.use('/api/admin', adminRoutes);
 app.use('/api/ai', aiRoutes);
-app.use('/api/recommend', recommendRoutes);
 
 app.use((error, req, res, next) => {
   console.error(error);

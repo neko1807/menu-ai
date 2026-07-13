@@ -12,6 +12,10 @@ async function createRecipeIdea(req, res, next) {
 
     return res.json({ recipeIdea });
   } catch (error) {
+    if (Number.isInteger(error?.statusCode)) {
+      return res.status(error.statusCode).json({ message: error.message });
+    }
+
     return next(error);
   }
 }

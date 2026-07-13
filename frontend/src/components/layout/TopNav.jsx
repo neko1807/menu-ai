@@ -1,5 +1,8 @@
 import { ChefHat } from 'lucide-react';
 
+const portfolioUrl =
+  import.meta.env.VITE_PORTFOLIO_URL?.trim() || 'https://neko1807.github.io/My-First-Portfolio/';
+
 function TopNav() {
   return (
     <div className="sticky top-0 z-20 border-b border-white/10 bg-slate-950/75 backdrop-blur-xl">
@@ -15,13 +18,12 @@ function TopNav() {
         </a>
 
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => window.history.back()}
+          <a
+            href={portfolioUrl}
             className="inline-flex items-center rounded-full border border-orange-400/20 bg-orange-400/10 px-4 py-2 text-xs font-medium text-orange-100 transition hover:bg-orange-400/15 hover:text-white"
           >
             กลับ Portfolio
-          </button>
+          </a>
           <div className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-slate-300 md:inline-flex">
             <span className="h-2 w-2 rounded-full bg-emerald-300" />
             พร้อมจัดเมนูจากสิ่งที่มี

@@ -7,3 +7,4 @@ frontend/dist/
 .pnpm-store/
 *.log
 .DS_Store
+data/

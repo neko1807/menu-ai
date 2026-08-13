@@ -12,98 +12,94 @@ class GeminiServiceError extends Error {
 function resolveGeminiModel() {
   const configuredModel = String(process.env.GEMINI_RECIPE_MODEL || '').trim();
 
-  if (!configuredModel || configuredModel === 'gemini-3.5-flash') {
-    return 'gemini-2.5-flash';
-  }
-
-  return configuredModel;
+  return !configuredModel || configuredModel === 'gemini-3.5-flash'
+    ? 'gemini-2.5-flash'
+    : configuredModel;
 }
 
 const GEMINI_MODEL = resolveGeminiModel();
 
-function buildRecipePrompt({ ingredients, notes }) {
+function buildRecommendationsPrompt({ ingredients, notes }) {
   return [
-    'คุณคือผู้ช่วยสร้างสูตรอาหารภาษาไทย',
-    'สร้างสูตรจากวัตถุดิบที่ผู้ใช้มีอยู่จริงให้มากที่สุด',
-    'usedIngredients ต้องมีเฉพาะวัตถุดิบที่อยู่ในรายการวัตถุดิบที่ผู้ใช้มี และให้ใช้ชื่อเดิมจากรายการ input',
-    'วัตถุดิบ เครื่องปรุง น้ำมัน หรือส่วนประกอบอื่นทุกอย่างที่ไม่อยู่ในรายการ input ต้องใส่ใน missingIngredients เท่านั้น',
-    'ห้ามนำวัตถุดิบที่ผู้ใช้ไม่ได้กรอกไปใส่ใน usedIngredients',
-    'ถ้าต้องมีวัตถุดิบเพิ่ม ให้ระบุให้น้อยที่สุดและใส่ให้ครบใน missingIngredients',
-    'ห้ามอ้างอิงเมนูฐานข้อมูลหรือเมนูเดิม',
-    'ตอบกลับเป็น JSON เท่านั้นตาม schema ที่กำหนด',
+    'คุณเป็นผู้ช่วยแนะนำเมนูอาหารภาษาไทย',
+    'แนะนำเมนูที่แตกต่างกันให้ครบ 5 เมนู จากวัตถุดิบของผู้ใช้',
+    'ตอบเฉพาะข้อมูลสั้นตาม schema: ชื่อเมนู สรุปไม่เกิน 20 คำ เวลาทำ และระดับความยาก',
+    'ห้ามใส่รายการวัตถุดิบ ขั้นตอนทำ หรือเคล็ดลับ เพราะระบบจะขอรายละเอียดเฉพาะเมนูที่ผู้ใช้เลือกภายหลัง',
     '',
     `วัตถุดิบที่มี: ${ingredients.join(', ')}`,
     `เงื่อนไขเพิ่มเติม: ${notes || 'ไม่มี'}`,
   ].join('\n');
 }
 
-function buildOutputSchema() {
+function buildRecipeDetailPrompt({ ingredients, notes, selectedRecipe }) {
+  return [
+    'คุณเป็นผู้ช่วยสร้างสูตรอาหารภาษาไทย',
+    `สร้างรายละเอียดสำหรับเมนู "${selectedRecipe.title}" เท่านั้น`,
+    'usedIngredients ต้องมีเฉพาะวัตถุดิบที่อยู่ในรายการ input และใช้ชื่อเดิมจาก input',
+    'วัตถุดิบ เครื่องปรุง น้ำมัน หรือส่วนประกอบทุกอย่างที่ไม่มีใน input ต้องอยู่ใน missingIngredients',
+    'ขั้นตอนทำกระชับและทำได้จริง พร้อมเคล็ดลับที่จำเป็นเท่านั้น',
+    '',
+    `สรุปเมนูที่เลือก: ${selectedRecipe.summary}`,
+    `วัตถุดิบที่มี: ${ingredients.join(', ')}`,
+    `เงื่อนไขเพิ่มเติม: ${notes || 'ไม่มี'}`,
+  ].join('\n');
+}
+
+function buildRecommendationSchema() {
   return {
     type: 'object',
     properties: {
       title: { type: 'string' },
       summary: { type: 'string' },
       estimatedCookingTime: { type: 'integer' },
-      difficulty: {
-        type: 'string',
-        enum: ['ง่าย', 'ปานกลาง', 'ยาก'],
-      },
-      basedOn: {
+      difficulty: { type: 'string', enum: ['ง่าย', 'ปานกลาง', 'ท้าทาย'] },
+    },
+    required: ['title', 'summary', 'estimatedCookingTime', 'difficulty'],
+  };
+}
+
+function buildRecommendationsSchema() {
+  return {
+    type: 'object',
+    properties: {
+      recipes: {
         type: 'array',
-        items: {
-          type: 'object',
-          properties: {
-            recipeTitle: { type: 'string' },
-            reason: { type: 'string' },
-          },
-          required: ['recipeTitle', 'reason'],
-        },
+        minItems: 5,
+        maxItems: 5,
+        items: buildRecommendationSchema(),
       },
+    },
+    required: ['recipes'],
+  };
+}
+
+function buildRecipeDetailSchema() {
+  return {
+    type: 'object',
+    properties: {
+      title: { type: 'string' },
+      summary: { type: 'string' },
+      estimatedCookingTime: { type: 'integer' },
+      difficulty: { type: 'string', enum: ['ง่าย', 'ปานกลาง', 'ท้าทาย'] },
       usedIngredients: {
         type: 'array',
         items: {
           type: 'object',
-          properties: {
-            name: { type: 'string' },
-            reason: { type: 'string' },
-          },
+          properties: { name: { type: 'string' }, reason: { type: 'string' } },
           required: ['name', 'reason'],
         },
       },
-      missingIngredients: {
-        type: 'array',
-        items: { type: 'string' },
-      },
-      substitutionSuggestions: {
-        type: 'array',
-        items: {
-          type: 'object',
-          properties: {
-            from: { type: 'string' },
-            to: { type: 'string' },
-            reason: { type: 'string' },
-          },
-          required: ['from', 'to', 'reason'],
-        },
-      },
-      steps: {
-        type: 'array',
-        items: { type: 'string' },
-      },
-      tips: {
-        type: 'array',
-        items: { type: 'string' },
-      },
+      missingIngredients: { type: 'array', items: { type: 'string' } },
+      steps: { type: 'array', items: { type: 'string' } },
+      tips: { type: 'array', items: { type: 'string' } },
     },
     required: [
       'title',
       'summary',
       'estimatedCookingTime',
       'difficulty',
-      'basedOn',
       'usedIngredients',
       'missingIngredients',
-      'substitutionSuggestions',
       'steps',
       'tips',
     ],
@@ -111,7 +107,10 @@ function buildOutputSchema() {
 }
 
 function parseGeminiJson(responseText) {
-  const rawText = String(responseText || '').trim();
+  const rawText = String(responseText || '')
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/, '');
 
   if (!rawText) {
     throw new Error('Gemini response was empty.');
@@ -136,11 +135,7 @@ function extractCandidateText(responseBody) {
 }
 
 function ingredientName(value) {
-  if (typeof value === 'string') {
-    return value.trim();
-  }
-
-  return String(value?.name || '').trim();
+  return typeof value === 'string' ? value.trim() : String(value?.name || '').trim();
 }
 
 function normalizeIngredientLabel(value) {
@@ -151,10 +146,6 @@ function normalizeIngredientLabel(value) {
 
 function matchesInputIngredient(value, normalizedInputs) {
   const normalizedValue = normalizeIngredientLabel(value);
-
-  if (!normalizedValue) {
-    return false;
-  }
 
   return normalizedInputs.some((input) => (
     input === normalizedValue ||
@@ -186,23 +177,14 @@ function reconcileRecipeIngredients(recipe, inputIngredients) {
   for (const item of Array.isArray(recipe?.usedIngredients) ? recipe.usedIngredients : []) {
     if (matchesInputIngredient(item, normalizedInputs)) {
       usedIngredients.push(item);
-      continue;
-    }
-
-    const name = ingredientName(item);
-    if (name) {
-      missingIngredients.push(name);
+    } else if (ingredientName(item)) {
+      missingIngredients.push(ingredientName(item));
     }
   }
 
   for (const item of Array.isArray(recipe?.missingIngredients) ? recipe.missingIngredients : []) {
-    if (matchesInputIngredient(item, normalizedInputs)) {
-      continue;
-    }
-
-    const name = ingredientName(item);
-    if (name) {
-      missingIngredients.push(name);
+    if (!matchesInputIngredient(item, normalizedInputs) && ingredientName(item)) {
+      missingIngredients.push(ingredientName(item));
     }
   }
 
@@ -213,7 +195,7 @@ function reconcileRecipeIngredients(recipe, inputIngredients) {
   };
 }
 
-async function generateRecipeIdea({ ingredients, notes }) {
+function cleanRecipeRequest({ ingredients, notes }) {
   const cleanedIngredients = [...new Set((Array.isArray(ingredients) ? ingredients : [])
     .map((value) => String(value || '').trim())
     .filter(Boolean))];
@@ -231,6 +213,10 @@ async function generateRecipeIdea({ ingredients, notes }) {
     throw new GeminiServiceError('เงื่อนไขเพิ่มเติมต้องไม่เกิน 500 ตัวอักษร', 400);
   }
 
+  return { cleanedIngredients, cleanedNotes };
+}
+
+async function requestGeminiJson({ prompt, schema, maxOutputTokens }) {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!apiKey) {
     throw new GeminiServiceError('ระบบยังไม่ได้กำหนด GEMINI_API_KEY', 503);
@@ -242,28 +228,17 @@ async function generateRecipeIdea({ ingredients, notes }) {
       `${GEMINI_API_URL}/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent`,
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey,
-        },
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify({
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                {
-                  text: buildRecipePrompt({
-                    ingredients: cleanedIngredients,
-                    notes: cleanedNotes,
-                  }),
-                },
-              ],
-            },
-          ],
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
           generationConfig: {
             responseMimeType: 'application/json',
-            responseSchema: buildOutputSchema(),
+            responseSchema: schema,
             temperature: 0.7,
+            maxOutputTokens,
+            thinkingConfig: {
+              thinkingBudget: 0,
+            },
           },
         }),
         signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
@@ -295,18 +270,52 @@ async function generateRecipeIdea({ ingredients, notes }) {
     throw new GeminiServiceError('Gemini ไม่ได้ส่งรายละเอียดเมนูกลับมา');
   }
 
-  try {
-    const recipe = parseGeminiJson(candidateText);
+  if (responseBody?.candidates?.some((candidate) => candidate?.finishReason === 'MAX_TOKENS')) {
+    throw new GeminiServiceError('Gemini ส่งข้อมูลเมนูมาไม่ครบ กรุณาลองใหม่');
+  }
 
-    return {
-      provider: 'gemini',
-      ...reconcileRecipeIngredients(recipe, cleanedIngredients),
-    };
+  try {
+    return parseGeminiJson(candidateText);
   } catch {
     throw new GeminiServiceError('ไม่สามารถอ่านรายละเอียดเมนูจาก Gemini ได้');
   }
 }
 
+async function generateRecipeIdea({ ingredients, notes }) {
+  const { cleanedIngredients, cleanedNotes } = cleanRecipeRequest({ ingredients, notes });
+  const response = await requestGeminiJson({
+    prompt: buildRecommendationsPrompt({ ingredients: cleanedIngredients, notes: cleanedNotes }),
+    schema: buildRecommendationsSchema(),
+    maxOutputTokens: 1200,
+  });
+  const recipes = Array.isArray(response?.recipes) ? response.recipes : [];
+
+  if (recipes.length !== 5 || new Set(recipes.map((recipe) => recipe.title.trim())).size !== 5) {
+    throw new GeminiServiceError('Gemini ไม่ได้ส่งเมนูที่แตกต่างกันครบ 5 เมนู');
+  }
+
+  return { provider: 'gemini', recipes };
+}
+
+async function generateRecipeDetails({ ingredients, notes, selectedRecipe }) {
+  const { cleanedIngredients, cleanedNotes } = cleanRecipeRequest({ ingredients, notes });
+  const recipe = await requestGeminiJson({
+    prompt: buildRecipeDetailPrompt({
+      ingredients: cleanedIngredients,
+      notes: cleanedNotes,
+      selectedRecipe,
+    }),
+    schema: buildRecipeDetailSchema(),
+    maxOutputTokens: 900,
+  });
+
+  return {
+    provider: 'gemini',
+    ...reconcileRecipeIngredients(recipe, cleanedIngredients),
+  };
+}
+
 module.exports = {
   generateRecipeIdea,
+  generateRecipeDetails,
 };

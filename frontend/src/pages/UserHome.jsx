@@ -30,6 +30,13 @@ const starterStats = [
   { label: 'สิ่งที่ต้องซื้อเพิ่ม', value: 'เห็นชัดก่อนซื้อ' },
 ];
 
+const preferenceFields = [
+  { label: 'รสชาติ', key: 'flavor', options: ['กลมกล่อม', 'เผ็ด', 'เปรี้ยว', 'หวาน', 'เค็มน้อย'] },
+  { label: 'ช่วงเวลา/โอกาส', key: 'occasion', options: ['มื้อเช้า', 'มื้อกลางวัน', 'มื้อเย็น', 'ของว่าง'] },
+  { label: 'ความยาก', key: 'difficulty', options: ['ง่าย', 'ปานกลาง', 'ท้าทาย'] },
+  { label: 'สำหรับคนวัยไหน', key: 'ageGroup', options: ['เด็ก', 'วัยทำงาน', 'ผู้สูงอายุ', 'ทุกวัย'] },
+];
+
 function parseIngredients(text) {
   return text
     .split(/[\n,]/)
@@ -45,14 +52,31 @@ function normalizeIngredientName(item) {
   return item?.name ?? '';
 }
 
+function buildPreferenceNotes(preferences) {
+  return preferenceFields
+    .map((field) => preferences[field.key] && `${field.label}: ${preferences[field.key]}`)
+    .filter(Boolean)
+    .join('; ');
+}
+
 function UserHome() {
   const [inputText, setInputText] = useState('ไข่ไก่, หมูสับ, หอมใหญ่, ข้าวสวย');
-  const [aiNotes, setAiNotes] = useState('อยากได้เมนูง่าย ๆ ทำใน 15-20 นาที');
+  const [preferences, setPreferences] = useState({
+    flavor: '',
+    occasion: '',
+    difficulty: '',
+    ageGroup: '',
+  });
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiDetailLoading, setAiDetailLoading] = useState(false);
   const [aiError, setAiError] = useState('');
   const [aiRecipe, setAiRecipe] = useState(null);
+  const [aiRecipes, setAiRecipes] = useState([]);
+  const [recommendationId, setRecommendationId] = useState(null);
+  const [selectedRecipeIndex, setSelectedRecipeIndex] = useState(0);
 
   const ingredients = useMemo(() => parseIngredients(inputText), [inputText]);
+  const preferenceNotes = useMemo(() => buildPreferenceNotes(preferences), [preferences]);
 
   async function handleAiGenerate() {
     if (ingredients.length === 0) {
@@ -63,6 +87,9 @@ function UserHome() {
     setAiLoading(true);
     setAiError('');
     setAiRecipe(null);
+    setAiRecipes([]);
+    setRecommendationId(null);
+    setSelectedRecipeIndex(0);
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/ai/recipe`, {
@@ -72,25 +99,62 @@ function UserHome() {
         },
         body: JSON.stringify({
           ingredients,
-          notes: aiNotes,
+          notes: preferenceNotes,
         }),
       });
 
       const data = await parseJsonResponse(response);
 
-      if (!response.ok || !data.recipeIdea) {
+      if (!response.ok || !Number.isFinite(Number(data.recommendationId)) || !Array.isArray(data.recipeIdeas) || data.recipeIdeas.length !== 5) {
         throw new Error(data.message || 'ไม่สามารถสร้างเมนูจาก AI ได้');
       }
 
-      setAiRecipe(data.recipeIdea);
+      setAiRecipes(data.recipeIdeas);
+      setRecommendationId(Number(data.recommendationId));
     } catch (error) {
       setAiRecipe(null);
+      setAiRecipes([]);
       setAiError(error.message || 'ไม่สามารถเชื่อมต่อ Gemini ได้ กรุณาลองใหม่');
     } finally {
       setAiLoading(false);
     }
   }
 
+  async function handleRecipeDetails() {
+    if (!recommendationId || !aiRecipes[selectedRecipeIndex]) {
+      return;
+    }
+
+    setAiDetailLoading(true);
+    setAiError('');
+    setAiRecipe(null);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/ai/recipe-details`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          recommendationId,
+          recipeIndex: selectedRecipeIndex,
+        }),
+      });
+      const data = await parseJsonResponse(response);
+
+      if (!response.ok || !data.recipeIdea) {
+        throw new Error(data.message || 'ไม่สามารถสร้างรายละเอียดเมนูได้');
+      }
+
+      setAiRecipe(data.recipeIdea);
+    } catch (error) {
+      setAiError(error.message || 'ไม่สามารถเชื่อมต่อ Gemini ได้ กรุณาลองใหม่');
+    } finally {
+      setAiDetailLoading(false);
+    }
+  }
+
+  const selectedRecipe = aiRecipes[selectedRecipeIndex];
   const usedIngredients = (aiRecipe?.usedIngredients || []).map(normalizeIngredientName).filter(Boolean);
   const missingIngredients = (aiRecipe?.missingIngredients || []).map(normalizeIngredientName).filter(Boolean);
   const steps = aiRecipe?.steps || [];
@@ -198,14 +262,27 @@ function UserHome() {
               </div>
 
               <div>
-                <label className="mb-2 block text-sm text-slate-400">เงื่อนไขเมนูเพิ่มเติม</label>
-                <textarea
-                  value={aiNotes}
-                  onChange={(event) => setAiNotes(event.target.value)}
-                  rows={3}
-                  placeholder="เช่น อยากได้เมนูง่าย ๆ ทำใน 15 นาที"
-                  className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-orange-400/50 focus:ring-2 focus:ring-orange-400/20"
-                />
+                <p className="mb-2 block text-sm text-slate-400">เลือกเงื่อนไขเมนู</p>
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  {preferenceFields.map((field) => (
+                    <label key={field.key} className="grid gap-2 text-sm text-slate-300">
+                      {field.label}
+                      <select
+                        value={preferences[field.key]}
+                        onChange={(event) => setPreferences((current) => ({
+                          ...current,
+                          [field.key]: event.target.value,
+                        }))}
+                        className="rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100 outline-none transition focus:border-orange-400/50 focus:ring-2 focus:ring-orange-400/20"
+                      >
+                        <option value="">ไม่ระบุ</option>
+                        {field.options.map((option) => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -233,6 +310,58 @@ function UserHome() {
             ) : null}
           </div>
         </section>
+
+        {aiRecipes.length ? (
+          <section className="rounded-3xl border border-white/10 bg-slate-900/75 p-6 shadow-glow backdrop-blur-xl">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-orange-200">5 เมนูแนะนำจาก menu-ai</p>
+                <h2 className="mt-1 text-2xl font-semibold text-white">เลือกเมนูที่อยากทำ</h2>
+              </div>
+              <span className="text-sm text-slate-400">สร้างและบันทึกเป็นชุดใหม่แล้ว</span>
+            </div>
+            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+              {aiRecipes.map((recipe, index) => {
+                const isSelected = index === selectedRecipeIndex;
+
+                return (
+                  <button
+                    key={`${recipe.title}-${index}`}
+                    type="button"
+                    onClick={() => {
+                      setSelectedRecipeIndex(index);
+                      setAiRecipe(null);
+                    }}
+                    className={`rounded-2xl border p-4 text-left transition ${
+                      isSelected
+                        ? 'border-orange-400/60 bg-orange-400/15'
+                        : 'border-white/10 bg-slate-950/45 hover:border-orange-400/30'
+                    }`}
+                  >
+                    <p className="text-xs font-medium text-orange-200">เมนูที่ {index + 1}</p>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-white">{recipe.title}</p>
+                    <p className="mt-2 text-xs leading-5 text-slate-400">{recipe.estimatedCookingTime} นาที · {recipe.difficulty}</p>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-950/45 p-4">
+              <div>
+                <p className="text-sm text-slate-400">เมนูที่เลือก</p>
+                <p className="mt-1 font-semibold text-white">{selectedRecipe?.title}</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleRecipeDetails}
+                disabled={aiDetailLoading}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-orange-400 px-5 py-3 font-semibold text-slate-950 transition hover:bg-orange-300 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {aiDetailLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <UtensilsCrossed className="h-5 w-5" />}
+                {aiDetailLoading ? 'กำลังสร้างรายละเอียด...' : 'ดูวิธีทำเมนูนี้'}
+              </button>
+            </div>
+          </section>
+        ) : null}
 
         {aiRecipe ? (
           <section className="rounded-3xl border border-white/10 bg-slate-900/75 p-6 shadow-glow backdrop-blur-xl">

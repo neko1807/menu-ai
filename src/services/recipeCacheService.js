@@ -1,97 +1,85 @@
-const crypto = require('crypto');
 const database = require('../db/database');
 
-const CACHE_VERSION = 'recipe-v1';
-
 function normalizeText(value) {
-    return String(value || '')
+  return String(value || '')
     .trim()
     .toLocaleLowerCase('th-TH')
     .replace(/\s+/g, ' ');
 }
 
 function normalizeIngredients(ingredients) {
-    return [...new Set(
-        ingredients
-        .map(normalizeText)
-        .filter(Boolean),
-    )].sort();
+  return [...new Set(
+    ingredients
+      .map(normalizeText)
+      .filter(Boolean),
+  )].sort();
 }
 
-function createCacheKey({ ingredients, notes }) {
-    const normalizedData = {
-        version: CACHE_VERSION,
-        ingredients: normalizeIngredients(ingredients),
-        notes: normalizeText(notes),
-};
-
-return crypto
-    .createHash('sha256')
-    .update(JSON.stringify(normalizedData))
-    .digest('hex');
-}
-
-async function findCachedRecipe({ ingredients, notes }) {
-  const cacheKey = createCacheKey({ ingredients, notes });
-
+async function saveMenuRecommendations({ ingredients, notes, recipes }) {
   const result = await database.query(
     `
-      SELECT recipe_json
-      FROM recipe_cache
-      WHERE cache_key = $1
+      INSERT INTO menu_recommendations (
+        ingredients_json,
+        notes,
+        recipes_json
+      )
+      VALUES ($1, $2, $3)
+      RETURNING id
     `,
-    [cacheKey],
+    [
+      JSON.stringify(normalizeIngredients(ingredients)),
+      normalizeText(notes),
+      JSON.stringify(recipes),
+    ],
   );
 
+  return result.rows[0].id;
+}
+
+function parseJson(value, fallback) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
+
+async function findMenuRecommendations(id) {
+  const result = await database.query(
+    `
+      SELECT ingredients_json, notes, recipes_json, recipe_details_json
+      FROM menu_recommendations
+      WHERE id = $1
+    `,
+    [id],
+  );
   const row = result.rows[0];
 
   if (!row) {
     return null;
   }
 
-  await database.query(
-    `
-      UPDATE recipe_cache
-      SET hit_count = hit_count + 1,
-          last_used_at = CURRENT_TIMESTAMP
-      WHERE cache_key = $1
-    `,
-    [cacheKey],
-  );
-
-  try {
-    return JSON.parse(row.recipe_json);
-  } catch {
-    return null;
-  }
+  return {
+    ingredients: parseJson(row.ingredients_json, []),
+    notes: row.notes,
+    recipes: parseJson(row.recipes_json, []),
+    recipeDetails: parseJson(row.recipe_details_json, {}),
+  };
 }
 
-async function saveCachedRecipe({ ingredients, notes, recipe }) {
-  const cacheKey = createCacheKey({ ingredients, notes });
-
+async function saveMenuRecommendationDetail({ id, recipeDetails }) {
   await database.query(
     `
-      INSERT INTO recipe_cache (
-        cache_key,
-        ingredients_json,
-        notes,
-        recipe_json
-      )
-      VALUES ($1, $2, $3, $4)
-      ON CONFLICT (cache_key) DO UPDATE SET
-        recipe_json = EXCLUDED.recipe_json,
-        last_used_at = CURRENT_TIMESTAMP
+      UPDATE menu_recommendations
+      SET recipe_details_json = $1
+      WHERE id = $2
     `,
-    [
-      cacheKey,
-      JSON.stringify(normalizeIngredients(ingredients)),
-      normalizeText(notes),
-      JSON.stringify(recipe),
-    ],
+    [JSON.stringify(recipeDetails), id],
   );
 }
 
 module.exports = {
-    findCachedRecipe,
-    saveCachedRecipe,
+  findMenuRecommendations,
+  saveMenuRecommendationDetail,
+  saveMenuRecommendations,
 };

@@ -15,7 +15,7 @@ services:
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_RECIPE_MODEL
-        value: gemini-2.5-flash
+        value: gemini-3.6-flash
       - key: DATABASE_URL
         sync: false
       - key: AUTH_TOKEN_SECRET

@@ -15,8 +15,8 @@ class GeminiServiceError extends Error {
 function resolveGeminiModel() {
   const configuredModel = String(process.env.GEMINI_RECIPE_MODEL || '').trim();
 
-  return !configuredModel || configuredModel === 'gemini-3.5-flash'
-    ? 'gemini-2.5-flash'
+  return !configuredModel || configuredModel === 'gemini-2.5-flash' || configuredModel === 'gemini-3.5-flash'
+    ? 'gemini-3.6-flash'
     : configuredModel;
 }
 

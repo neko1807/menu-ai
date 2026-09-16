@@ -57,8 +57,8 @@ async function askGemini(ingredients) {
   }
 
   const configuredModel = String(process.env.GEMINI_RECIPE_MODEL || '').trim();
-  const model = !configuredModel || configuredModel === 'gemini-3.5-flash'
-    ? 'gemini-2.5-flash'
+  const model = !configuredModel || configuredModel === 'gemini-2.5-flash' || configuredModel === 'gemini-3.5-flash'
+    ? 'gemini-3.6-flash'
     : configuredModel;
   let response;
   try {

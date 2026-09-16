@@ -45,7 +45,7 @@ Frontend จะเปิดที่ `http://localhost:5173` และเรี�
 
 - `CORS_ORIGIN` — URL ของ frontend เช่น `https://your-app.vercel.app`
 - `GEMINI_API_KEY` — API key ของ Gemini
-- `GEMINI_RECIPE_MODEL` — ไม่บังคับ ค่าเริ่มต้นคือ `gemini-2.5-flash`
+- `GEMINI_RECIPE_MODEL` — ไม่บังคับ ค่าเริ่มต้นคือ `gemini-3.6-flash`
 - `DATABASE_URL` — PostgreSQL connection string
 - `AUTH_TOKEN_SECRET` — secret แบบสุ่มอย่างน้อย 32 ตัวอักษร สำหรับลงลายเซ็น token
 

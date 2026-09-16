@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, CheckCircle2, Clock3, Loader2, Sparkles, UtensilsCrossed } from 'lucide-react';
 import TopNav from '../components/layout/TopNav';
+import AuthDialog from '../components/auth/AuthDialog';
 import { API_BASE_URL } from '../config/api';
 import { parseJsonResponse } from '../lib/response';
 
@@ -70,15 +71,68 @@ function UserHome() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiDetailLoading, setAiDetailLoading] = useState(false);
   const [aiError, setAiError] = useState('');
+  const [invalidIngredients, setInvalidIngredients] = useState([]);
   const [aiRecipe, setAiRecipe] = useState(null);
   const [aiRecipes, setAiRecipes] = useState([]);
   const [recommendationId, setRecommendationId] = useState(null);
   const [selectedRecipeIndex, setSelectedRecipeIndex] = useState(0);
+  const [authToken, setAuthToken] = useState(() => localStorage.getItem('menu-ai-auth-token') || '');
+  const [user, setUser] = useState(null);
+  const [authOpen, setAuthOpen] = useState(false);
 
   const ingredients = useMemo(() => parseIngredients(inputText), [inputText]);
   const preferenceNotes = useMemo(() => buildPreferenceNotes(preferences), [preferences]);
 
+  useEffect(() => {
+    if (!authToken) {
+      return undefined;
+    }
+
+    let active = true;
+    fetch(`${API_BASE_URL}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    })
+      .then(parseJsonResponse)
+      .then((data) => {
+        if (active && data.user) {
+          setUser(data.user);
+        } else if (active) {
+          localStorage.removeItem('menu-ai-auth-token');
+          setAuthToken('');
+        }
+      })
+      .catch(() => {
+        if (active) {
+          localStorage.removeItem('menu-ai-auth-token');
+          setAuthToken('');
+        }
+      });
+
+    return () => { active = false; };
+  }, [authToken]);
+
+  function handleAuthenticated({ token, user: authenticatedUser }) {
+    localStorage.setItem('menu-ai-auth-token', token);
+    setAuthToken(token);
+    setUser(authenticatedUser);
+    setAuthOpen(false);
+  }
+
+  function handleLogout() {
+    localStorage.removeItem('menu-ai-auth-token');
+    setAuthToken('');
+    setUser(null);
+    setAiRecipe(null);
+    setAiRecipes([]);
+  }
+
   async function handleAiGenerate() {
+    if (!authToken || !user) {
+      setAiError('กรุณาเข้าสู่ระบบก่อนสร้างเมนู');
+      setAuthOpen(true);
+      return;
+    }
+
     if (ingredients.length === 0) {
       setAiError('กรุณากรอกวัตถุดิบอย่างน้อย 1 รายการ');
       return;
@@ -86,6 +140,7 @@ function UserHome() {
 
     setAiLoading(true);
     setAiError('');
+    setInvalidIngredients([]);
     setAiRecipe(null);
     setAiRecipes([]);
     setRecommendationId(null);
@@ -96,6 +151,7 @@ function UserHome() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify({
           ingredients,
@@ -104,6 +160,11 @@ function UserHome() {
       });
 
       const data = await parseJsonResponse(response);
+
+      if (!response.ok && Array.isArray(data.invalidIngredients) && data.invalidIngredients.length) {
+        setInvalidIngredients(data.invalidIngredients);
+        throw new Error(data.message || 'พบรายการที่ไม่ใช่วัตถุดิบ');
+      }
 
       if (!response.ok || !Number.isFinite(Number(data.recommendationId)) || !Array.isArray(data.recipeIdeas) || data.recipeIdeas.length !== 5) {
         throw new Error(data.message || 'ไม่สามารถสร้างเมนูจาก AI ได้');
@@ -121,6 +182,12 @@ function UserHome() {
   }
 
   async function handleRecipeDetails() {
+    if (!authToken || !user) {
+      setAiError('กรุณาเข้าสู่ระบบก่อนดูรายละเอียดเมนู');
+      setAuthOpen(true);
+      return;
+    }
+
     if (!recommendationId || !aiRecipes[selectedRecipeIndex]) {
       return;
     }
@@ -134,6 +201,7 @@ function UserHome() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify({
           recommendationId,
@@ -162,7 +230,9 @@ function UserHome() {
 
   return (
     <div id="top" className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(251,146,60,0.18),_transparent_24%),radial-gradient(circle_at_85%_0%,_rgba(217,119,6,0.18),_transparent_22%),linear-gradient(180deg,_#020617_0%,_#0f172a_44%,_#111827_100%)]">
-      <TopNav />
+      <TopNav user={user} onLogin={() => setAuthOpen(true)} onLogout={handleLogout} />
+
+      {authOpen ? <AuthDialog onClose={() => setAuthOpen(false)} onAuthenticated={handleAuthenticated} /> : null}
 
       <main className="mx-auto flex max-w-[1200px] flex-col gap-6 px-6 py-8">
         <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
@@ -253,7 +323,10 @@ function UserHome() {
                 <label className="mb-2 block text-sm text-slate-400">วัตถุดิบที่มี</label>
                 <textarea
                   value={inputText}
-                  onChange={(event) => setInputText(event.target.value)}
+                  onChange={(event) => {
+                    setInputText(event.target.value);
+                    setInvalidIngredients([]);
+                  }}
                   rows={4}
                   placeholder="เช่น ไข่ไก่, หมูสับ, ข้าวสวย"
                   className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-orange-400/50 focus:ring-2 focus:ring-orange-400/20"
@@ -308,6 +381,19 @@ function UserHome() {
                 <span>{aiError}</span>
               </div>
             ) : null}
+
+            {invalidIngredients.length ? (
+              <div className="rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+                <p className="font-medium">รายการเหล่านี้ไม่ใช่วัตถุดิบ โปรดนำออกแล้วลองใหม่</p>
+                <ul className="mt-2 space-y-1 text-amber-200">
+                  {invalidIngredients.map((item) => (
+                    <li key={`${item.name}-${item.reason}`}>
+                      <span className="font-medium">{item.name}</span>{item.reason ? ` — ${item.reason}` : ''}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </div>
         </section>
 
@@ -318,7 +404,7 @@ function UserHome() {
                 <p className="text-sm font-medium text-orange-200">5 เมนูแนะนำจาก menu-ai</p>
                 <h2 className="mt-1 text-2xl font-semibold text-white">เลือกเมนูที่อยากทำ</h2>
               </div>
-              <span className="text-sm text-slate-400">สร้างและบันทึกเป็นชุดใหม่แล้ว</span>
+              <span className="text-sm text-slate-400"></span>
             </div>
             <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
               {aiRecipes.map((recipe, index) => {

@@ -32,6 +32,7 @@ async function createRecipeIdea(req, res, next) {
     if (Number.isInteger(error?.statusCode)) {
       return res.status(error.statusCode).json({
         message: error.message,
+        invalidIngredients: error.invalidIngredients || [],
       });
     }
 

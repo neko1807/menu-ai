@@ -1,11 +1,14 @@
+const { validateIngredients } = require('./ingredientValidationService');
+
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta';
 const GEMINI_TIMEOUT_MS = 30_000;
 
 class GeminiServiceError extends Error {
-  constructor(message, statusCode = 502) {
+  constructor(message, statusCode = 502, invalidIngredients = []) {
     super(message);
     this.name = 'GeminiServiceError';
     this.statusCode = statusCode;
+    this.invalidIngredients = invalidIngredients;
   }
 }
 
@@ -216,6 +219,20 @@ function cleanRecipeRequest({ ingredients, notes }) {
   return { cleanedIngredients, cleanedNotes };
 }
 
+async function validateAndCleanRecipeRequest({ ingredients, notes }) {
+  const { cleanedIngredients, cleanedNotes } = cleanRecipeRequest({ ingredients, notes });
+  const invalidIngredients = await validateIngredients(cleanedIngredients);
+  if (invalidIngredients.length > 0) {
+    throw new GeminiServiceError(
+      'พบรายการที่ไม่ใช่วัตถุดิบ กรุณานำออกก่อนสร้างเมนู',
+      400,
+      invalidIngredients,
+    );
+  }
+
+  return { cleanedIngredients, cleanedNotes };
+}
+
 async function requestGeminiJson({ prompt, schema, maxOutputTokens }) {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!apiKey) {
@@ -282,7 +299,7 @@ async function requestGeminiJson({ prompt, schema, maxOutputTokens }) {
 }
 
 async function generateRecipeIdea({ ingredients, notes }) {
-  const { cleanedIngredients, cleanedNotes } = cleanRecipeRequest({ ingredients, notes });
+  const { cleanedIngredients, cleanedNotes } = await validateAndCleanRecipeRequest({ ingredients, notes });
   const response = await requestGeminiJson({
     prompt: buildRecommendationsPrompt({ ingredients: cleanedIngredients, notes: cleanedNotes }),
     schema: buildRecommendationsSchema(),
@@ -298,6 +315,7 @@ async function generateRecipeIdea({ ingredients, notes }) {
 }
 
 async function generateRecipeDetails({ ingredients, notes, selectedRecipe }) {
+  // รายการนี้ผ่านการตรวจแล้วก่อนถูกบันทึกเป็น recommendation จึงไม่ต้องเรียก Gemini ซ้ำ
   const { cleanedIngredients, cleanedNotes } = cleanRecipeRequest({ ingredients, notes });
   const recipe = await requestGeminiJson({
     prompt: buildRecipeDetailPrompt({
@@ -316,6 +334,7 @@ async function generateRecipeDetails({ ingredients, notes, selectedRecipe }) {
 }
 
 module.exports = {
+  GeminiServiceError,
   generateRecipeIdea,
   generateRecipeDetails,
 };

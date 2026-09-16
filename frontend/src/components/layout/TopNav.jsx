@@ -1,9 +1,9 @@
-import { ChefHat } from 'lucide-react';
+import { ChefHat, LogIn, LogOut } from 'lucide-react';
 
 const portfolioUrl =
   import.meta.env.VITE_PORTFOLIO_URL?.trim() || 'https://neko1807.github.io/My-First-Portfolio/';
 
-function TopNav() {
+function TopNav({ user, onLogin, onLogout }) {
   return (
     <div className="sticky top-0 z-20 border-b border-white/10 bg-slate-950/75 backdrop-blur-xl">
       <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-4 px-6 py-4">
@@ -18,13 +18,36 @@ function TopNav() {
         </a>
 
         <div className="flex items-center gap-3">
+          {user ? (
+            <div className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-slate-300 md:inline-flex">
+              <span className="max-w-40 truncate">{user.email}</span>
+              <button
+                type="button"
+                onClick={onLogout}
+                className="text-slate-400 transition hover:text-white"
+                title="ออกจากระบบ"
+                aria-label="ออกจากระบบ"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={onLogin}
+              className="inline-flex items-center gap-2 rounded-full border border-orange-400/20 bg-orange-400/10 px-4 py-2 text-xs font-medium text-orange-100 transition hover:bg-orange-400/15 hover:text-white"
+            >
+              <LogIn className="h-4 w-4" />
+              เข้าสู่ระบบ
+            </button>
+          )}
           <a
             href={portfolioUrl}
             className="inline-flex items-center rounded-full border border-orange-400/20 bg-orange-400/10 px-4 py-2 text-xs font-medium text-orange-100 transition hover:bg-orange-400/15 hover:text-white"
           >
             กลับ Portfolio
           </a>
-          <div className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-slate-300 md:inline-flex">
+          <div className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-slate-300 lg:inline-flex">
             <span className="h-2 w-2 rounded-full bg-emerald-300" />
             พร้อมจัดเมนูจากสิ่งที่มี
           </div>

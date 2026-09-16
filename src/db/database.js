@@ -28,6 +28,31 @@ const databaseReady = (async () => {
     ALTER TABLE menu_recommendations
     ADD COLUMN IF NOT EXISTS recipe_details_json TEXT NOT NULL DEFAULT '{}'
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id BIGSERIAL PRIMARY KEY,
+      email TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS invalid_ingredients (
+      id BIGSERIAL PRIMARY KEY,
+      original_name TEXT NOT NULL,
+      normalized_name TEXT NOT NULL UNIQUE,
+      reason TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await pool.query(`
+    ALTER TABLE invalid_ingredients
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+  `);
 })();
 
 async function query(text, parameters = []) {

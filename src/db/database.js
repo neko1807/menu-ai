@@ -55,19 +55,19 @@ const databaseReady = (async () => {
   `);
 
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS meal_logs (
+    CREATE TABLE IF NOT EXISTS favorite_recipes (
       id BIGSERIAL PRIMARY KEY,
       user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       title TEXT NOT NULL,
-      summary TEXT NOT NULL DEFAULT '',
-      cooking_time INTEGER,
-      logged_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      recipe_json TEXT NOT NULL,
+      saved_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (user_id, title)
     )
   `);
 
   await pool.query(`
-    CREATE INDEX IF NOT EXISTS meal_logs_user_logged_at_idx
-    ON meal_logs (user_id, logged_at DESC)
+    CREATE INDEX IF NOT EXISTS favorite_recipes_user_saved_at_idx
+    ON favorite_recipes (user_id, saved_at DESC)
   `);
 })();
 

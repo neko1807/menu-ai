@@ -79,10 +79,10 @@ function UserHome() {
   const [authToken, setAuthToken] = useState(() => localStorage.getItem('menu-ai-auth-token') || '');
   const [user, setUser] = useState(null);
   const [authOpen, setAuthOpen] = useState(false);
-  const [mealLogs, setMealLogs] = useState([]);
-  const [mealLogsLoading, setMealLogsLoading] = useState(false);
-  const [mealLogLoading, setMealLogLoading] = useState(false);
-  const [mealLogMessage, setMealLogMessage] = useState('');
+  const [favorites, setFavorites] = useState([]);
+  const [favoritesLoading, setFavoritesLoading] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const [favoriteMessage, setFavoriteMessage] = useState('');
 
   const ingredients = useMemo(() => parseIngredients(inputText), [inputText]);
   const preferenceNotes = useMemo(() => buildPreferenceNotes(preferences), [preferences]);
@@ -117,26 +117,26 @@ function UserHome() {
 
   useEffect(() => {
     if (!authToken || !user) {
-      setMealLogs([]);
+      setFavorites([]);
       return undefined;
     }
 
     let active = true;
-    setMealLogsLoading(true);
-    fetch(`${API_BASE_URL}/api/meals`, {
+    setFavoritesLoading(true);
+    fetch(`${API_BASE_URL}/api/favorites`, {
       headers: { Authorization: `Bearer ${authToken}` },
     })
       .then(parseJsonResponse)
       .then((data) => {
         if (active) {
-          setMealLogs(Array.isArray(data.meals) ? data.meals : []);
+          setFavorites(Array.isArray(data.favorites) ? data.favorites : []);
         }
       })
       .catch(() => {
-        if (active) setMealLogs([]);
+        if (active) setFavorites([]);
       })
       .finally(() => {
-        if (active) setMealLogsLoading(false);
+        if (active) setFavoritesLoading(false);
       });
 
     return () => { active = false; };
@@ -155,8 +155,8 @@ function UserHome() {
     setUser(null);
     setAiRecipe(null);
     setAiRecipes([]);
-    setMealLogs([]);
-    setMealLogMessage('');
+    setFavorites([]);
+    setFavoriteMessage('');
   }
 
   async function handleAiGenerate() {
@@ -248,7 +248,7 @@ function UserHome() {
       }
 
       setAiRecipe(data.recipeIdea);
-      setMealLogMessage('');
+      setFavoriteMessage('');
     } catch (error) {
       setAiError(error.message || 'ไม่สามารถเชื่อมต่อ Gemini ได้ กรุณาลองใหม่');
     } finally {
@@ -256,35 +256,31 @@ function UserHome() {
     }
   }
 
-  async function handleSaveMeal() {
+  async function handleSaveFavorite() {
     if (!authToken || !aiRecipe) return;
 
-    setMealLogLoading(true);
-    setMealLogMessage('');
+    setFavoriteLoading(true);
+    setFavoriteMessage('');
     try {
-      const response = await fetch(`${API_BASE_URL}/api/meals`, {
+      const response = await fetch(`${API_BASE_URL}/api/favorites`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${authToken}`,
         },
-        body: JSON.stringify({
-          title: aiRecipe.title,
-          summary: aiRecipe.summary,
-          cookingTime: aiRecipe.estimatedCookingTime,
-        }),
+        body: JSON.stringify({ recipe: aiRecipe }),
       });
       const data = await parseJsonResponse(response);
-      if (!response.ok || !data.meal) {
-        throw new Error(data.message || 'ไม่สามารถบันทึกเมนูได้');
+      if (!response.ok || !data.favorite) {
+        throw new Error(data.message || 'ไม่สามารถบันทึกเมนูโปรดได้');
       }
 
-      setMealLogs((current) => [data.meal, ...current].slice(0, 20));
-      setMealLogMessage('บันทึกเมนูนี้ในรายการที่คุณทานแล้ว');
+      setFavorites((current) => [data.favorite, ...current.filter((item) => item.id !== data.favorite.id)].slice(0, 30));
+      setFavoriteMessage('บันทึกเมนูนี้ในรายการโปรดแล้ว');
     } catch (error) {
-      setMealLogMessage(error.message || 'ไม่สามารถบันทึกเมนูได้');
+      setFavoriteMessage(error.message || 'ไม่สามารถบันทึกเมนูโปรดได้');
     } finally {
-      setMealLogLoading(false);
+      setFavoriteLoading(false);
     }
   }
 
@@ -582,14 +578,14 @@ function UserHome() {
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <button
                 type="button"
-                onClick={handleSaveMeal}
-                disabled={mealLogLoading}
+                onClick={handleSaveFavorite}
+                disabled={favoriteLoading}
                 className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-5 py-3 font-semibold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {mealLogLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <ClipboardCheck className="h-5 w-5" />}
-                {mealLogLoading ? 'กำลังบันทึก...' : 'บันทึกสิ่งที่คุณทาน'}
+                {favoriteLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <ClipboardCheck className="h-5 w-5" />}
+                {favoriteLoading ? 'กำลังบันทึก...' : 'บันทึกเมนูโปรด'}
               </button>
-              {mealLogMessage ? <p className="text-sm text-emerald-200">{mealLogMessage}</p> : null}
+              {favoriteMessage ? <p className="text-sm text-emerald-200">{favoriteMessage}</p> : null}
             </div>
 
             <p className="mt-4 text-xs text-slate-500">แหล่งผลลัพธ์: Gemini</p>
@@ -597,31 +593,40 @@ function UserHome() {
         ) : null}
 
         {user ? (
-          <section className="rounded-3xl border border-white/10 bg-slate-900/75 p-6 shadow-glow backdrop-blur-xl">
+          <section id="recipe-result" className="rounded-3xl border border-white/10 bg-slate-900/75 p-6 shadow-glow backdrop-blur-xl">
             <div className="flex items-center gap-2 text-slate-200">
               <ClipboardCheck className="h-5 w-5 text-emerald-300" />
               <div>
-                <p className="text-sm font-medium text-emerald-200">ประวัติส่วนตัว</p>
-                <h2 className="mt-1 text-2xl font-semibold text-white">สิ่งที่คุณทาน</h2>
+                <p className="text-sm font-medium text-emerald-200">เมนูส่วนตัว</p>
+                <h2 className="mt-1 text-2xl font-semibold text-white">เมนูที่คุณชอบ</h2>
               </div>
             </div>
-            {mealLogsLoading ? (
-              <div className="mt-5 flex items-center gap-2 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" />กำลังโหลดประวัติ...</div>
-            ) : mealLogs.length ? (
+            {favoritesLoading ? (
+              <div className="mt-5 flex items-center gap-2 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" />กำลังโหลดเมนูโปรด...</div>
+            ) : favorites.length ? (
               <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {mealLogs.map((meal) => (
-                  <div key={meal.id} className="rounded-2xl border border-white/10 bg-slate-950/45 p-4">
-                    <p className="font-semibold text-white">{meal.title}</p>
-                    {meal.summary ? <p className="mt-1 text-sm leading-6 text-slate-400">{meal.summary}</p> : null}
+                {favorites.map((favorite) => (
+                  <button
+                    key={favorite.id}
+                    type="button"
+                    onClick={() => {
+                      setAiRecipe(favorite.recipe);
+                      setFavoriteMessage('เปิดรายละเอียดจากเมนูโปรดแล้ว');
+                      document.getElementById('recipe-result')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }}
+                    className="rounded-2xl border border-white/10 bg-slate-950/45 p-4 text-left transition hover:border-emerald-400/40"
+                  >
+                    <p className="font-semibold text-white">{favorite.recipe.title}</p>
+                    {favorite.recipe.summary ? <p className="mt-1 text-sm leading-6 text-slate-400">{favorite.recipe.summary}</p> : null}
                     <p className="mt-3 text-xs text-emerald-200">
-                      {new Date(meal.loggedAt).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}
-                      {Number.isFinite(meal.cookingTime) ? ` · ${meal.cookingTime} นาที` : ''}
+                      บันทึกเมื่อ {new Date(favorite.savedAt).toLocaleDateString('th-TH', { dateStyle: 'medium' })}
+                      {Number.isFinite(favorite.recipe.estimatedCookingTime) ? ` · ${favorite.recipe.estimatedCookingTime} นาที` : ''}
                     </p>
-                  </div>
+                  </button>
                 ))}
               </div>
             ) : (
-              <p className="mt-5 text-sm text-slate-400">ยังไม่มีเมนูที่บันทึกไว้ เลือกเมนูแล้วกด “บันทึกสิ่งที่คุณทาน” ได้เลย</p>
+              <p className="mt-5 text-sm text-slate-400">ยังไม่มีเมนูโปรด เลือกเมนูแล้วกด “บันทึกเมนูโปรด” เพื่อกลับมาดูได้ทุกครั้งที่ล็อกอิน</p>
             )}
           </section>
         ) : null}

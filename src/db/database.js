@@ -53,6 +53,22 @@ const databaseReady = (async () => {
     ALTER TABLE invalid_ingredients
     ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS meal_logs (
+      id BIGSERIAL PRIMARY KEY,
+      user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      summary TEXT NOT NULL DEFAULT '',
+      cooking_time INTEGER,
+      logged_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS meal_logs_user_logged_at_idx
+    ON meal_logs (user_id, logged_at DESC)
+  `);
 })();
 
 async function query(text, parameters = []) {

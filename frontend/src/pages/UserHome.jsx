@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, CheckCircle2, Clock3, Loader2, Sparkles, UtensilsCrossed } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ClipboardCheck, Clock3, Loader2, Sparkles, UtensilsCrossed } from 'lucide-react';
 import TopNav from '../components/layout/TopNav';
 import AuthDialog from '../components/auth/AuthDialog';
 import { API_BASE_URL } from '../config/api';
@@ -79,6 +79,10 @@ function UserHome() {
   const [authToken, setAuthToken] = useState(() => localStorage.getItem('menu-ai-auth-token') || '');
   const [user, setUser] = useState(null);
   const [authOpen, setAuthOpen] = useState(false);
+  const [mealLogs, setMealLogs] = useState([]);
+  const [mealLogsLoading, setMealLogsLoading] = useState(false);
+  const [mealLogLoading, setMealLogLoading] = useState(false);
+  const [mealLogMessage, setMealLogMessage] = useState('');
 
   const ingredients = useMemo(() => parseIngredients(inputText), [inputText]);
   const preferenceNotes = useMemo(() => buildPreferenceNotes(preferences), [preferences]);
@@ -111,6 +115,33 @@ function UserHome() {
     return () => { active = false; };
   }, [authToken]);
 
+  useEffect(() => {
+    if (!authToken || !user) {
+      setMealLogs([]);
+      return undefined;
+    }
+
+    let active = true;
+    setMealLogsLoading(true);
+    fetch(`${API_BASE_URL}/api/meals`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    })
+      .then(parseJsonResponse)
+      .then((data) => {
+        if (active) {
+          setMealLogs(Array.isArray(data.meals) ? data.meals : []);
+        }
+      })
+      .catch(() => {
+        if (active) setMealLogs([]);
+      })
+      .finally(() => {
+        if (active) setMealLogsLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [authToken, user]);
+
   function handleAuthenticated({ token, user: authenticatedUser }) {
     localStorage.setItem('menu-ai-auth-token', token);
     setAuthToken(token);
@@ -124,6 +155,8 @@ function UserHome() {
     setUser(null);
     setAiRecipe(null);
     setAiRecipes([]);
+    setMealLogs([]);
+    setMealLogMessage('');
   }
 
   async function handleAiGenerate() {
@@ -215,10 +248,43 @@ function UserHome() {
       }
 
       setAiRecipe(data.recipeIdea);
+      setMealLogMessage('');
     } catch (error) {
       setAiError(error.message || 'ไม่สามารถเชื่อมต่อ Gemini ได้ กรุณาลองใหม่');
     } finally {
       setAiDetailLoading(false);
+    }
+  }
+
+  async function handleSaveMeal() {
+    if (!authToken || !aiRecipe) return;
+
+    setMealLogLoading(true);
+    setMealLogMessage('');
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/meals`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({
+          title: aiRecipe.title,
+          summary: aiRecipe.summary,
+          cookingTime: aiRecipe.estimatedCookingTime,
+        }),
+      });
+      const data = await parseJsonResponse(response);
+      if (!response.ok || !data.meal) {
+        throw new Error(data.message || 'ไม่สามารถบันทึกเมนูได้');
+      }
+
+      setMealLogs((current) => [data.meal, ...current].slice(0, 20));
+      setMealLogMessage('บันทึกเมนูนี้ในรายการที่คุณทานแล้ว');
+    } catch (error) {
+      setMealLogMessage(error.message || 'ไม่สามารถบันทึกเมนูได้');
+    } finally {
+      setMealLogLoading(false);
     }
   }
 
@@ -513,7 +579,50 @@ function UserHome() {
               </div>
             </div>
 
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleSaveMeal}
+                disabled={mealLogLoading}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-5 py-3 font-semibold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {mealLogLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <ClipboardCheck className="h-5 w-5" />}
+                {mealLogLoading ? 'กำลังบันทึก...' : 'บันทึกสิ่งที่คุณทาน'}
+              </button>
+              {mealLogMessage ? <p className="text-sm text-emerald-200">{mealLogMessage}</p> : null}
+            </div>
+
             <p className="mt-4 text-xs text-slate-500">แหล่งผลลัพธ์: Gemini</p>
+          </section>
+        ) : null}
+
+        {user ? (
+          <section className="rounded-3xl border border-white/10 bg-slate-900/75 p-6 shadow-glow backdrop-blur-xl">
+            <div className="flex items-center gap-2 text-slate-200">
+              <ClipboardCheck className="h-5 w-5 text-emerald-300" />
+              <div>
+                <p className="text-sm font-medium text-emerald-200">ประวัติส่วนตัว</p>
+                <h2 className="mt-1 text-2xl font-semibold text-white">สิ่งที่คุณทาน</h2>
+              </div>
+            </div>
+            {mealLogsLoading ? (
+              <div className="mt-5 flex items-center gap-2 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" />กำลังโหลดประวัติ...</div>
+            ) : mealLogs.length ? (
+              <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {mealLogs.map((meal) => (
+                  <div key={meal.id} className="rounded-2xl border border-white/10 bg-slate-950/45 p-4">
+                    <p className="font-semibold text-white">{meal.title}</p>
+                    {meal.summary ? <p className="mt-1 text-sm leading-6 text-slate-400">{meal.summary}</p> : null}
+                    <p className="mt-3 text-xs text-emerald-200">
+                      {new Date(meal.loggedAt).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}
+                      {Number.isFinite(meal.cookingTime) ? ` · ${meal.cookingTime} นาที` : ''}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-5 text-sm text-slate-400">ยังไม่มีเมนูที่บันทึกไว้ เลือกเมนูแล้วกด “บันทึกสิ่งที่คุณทาน” ได้เลย</p>
+            )}
           </section>
         ) : null}
       </main>

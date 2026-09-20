@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const aiRoutes = require('./routes/aiRoutes');
 const authRoutes = require('./routes/authRoutes');
+const mealLogRoutes = require('./routes/mealLogRoutes');
 const { requireAuth } = require('./middleware/requireAuth');
 
 const app = express();
@@ -55,6 +56,7 @@ app.get('/health', (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/ai', requireAuth, aiRoutes);
+app.use('/api/meals', requireAuth, mealLogRoutes);
 
 app.use((error, req, res, next) => {
   console.error(error);

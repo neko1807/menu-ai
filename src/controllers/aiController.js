@@ -19,7 +19,7 @@ async function createRecipeIdea(req, res, next) {
     });
 
     const recommendationId = await saveMenuRecommendations({
-      ingredients,
+      ingredients: recipeRecommendations.ingredients,
       notes,
       recipes: recipeRecommendations.recipes,
     });
@@ -27,6 +27,8 @@ async function createRecipeIdea(req, res, next) {
     return res.json({
       recommendationId,
       recipeIdeas: recipeRecommendations.recipes,
+      acceptedIngredients: recipeRecommendations.ingredients,
+      invalidIngredients: recipeRecommendations.invalidIngredients,
     });
   } catch (error) {
     if (Number.isInteger(error?.statusCode)) {

@@ -194,8 +194,11 @@ function UserHome() {
 
       const data = await parseJsonResponse(response);
 
-      if (!response.ok && Array.isArray(data.invalidIngredients) && data.invalidIngredients.length) {
+      if (Array.isArray(data.invalidIngredients) && data.invalidIngredients.length) {
         setInvalidIngredients(data.invalidIngredients);
+      }
+
+      if (!response.ok) {
         throw new Error(data.message || 'พบรายการที่ไม่ใช่วัตถุดิบ');
       }
 
@@ -205,6 +208,10 @@ function UserHome() {
 
       setAiRecipes(data.recipeIdeas);
       setRecommendationId(Number(data.recommendationId));
+
+      if (Array.isArray(data.acceptedIngredients) && data.acceptedIngredients.length) {
+        setInputText(data.acceptedIngredients.join(', '));
+      }
     } catch (error) {
       setAiRecipe(null);
       setAiRecipes([]);
@@ -446,7 +453,11 @@ function UserHome() {
 
             {invalidIngredients.length ? (
               <div className="rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
-                <p className="font-medium">รายการเหล่านี้ไม่ใช่วัตถุดิบ โปรดนำออกแล้วลองใหม่</p>
+                <p className="font-medium">
+                  {aiRecipes.length
+                    ? 'ระบบตัดรายการที่ไม่ใช่วัตถุดิบออกแล้ว และแนะนำเมนูจากรายการที่รับประทานได้'
+                    : 'พบรายการที่ไม่ใช่วัตถุดิบ'}
+                </p>
                 <ul className="mt-2 space-y-1 text-amber-200">
                   {invalidIngredients.map((item) => (
                     <li key={`${item.name}-${item.reason}`}>

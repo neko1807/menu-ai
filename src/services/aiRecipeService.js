@@ -222,15 +222,21 @@ function cleanRecipeRequest({ ingredients, notes }) {
 async function validateAndCleanRecipeRequest({ ingredients, notes }) {
   const { cleanedIngredients, cleanedNotes } = cleanRecipeRequest({ ingredients, notes });
   const invalidIngredients = await validateIngredients(cleanedIngredients);
-  if (invalidIngredients.length > 0) {
+
+  const invalidNames = new Set(invalidIngredients.map((item) => normalizeIngredientLabel(item.name)));
+  const edibleIngredients = cleanedIngredients.filter(
+    (ingredient) => !invalidNames.has(normalizeIngredientLabel(ingredient)),
+  );
+
+  if (!edibleIngredients.length) {
     throw new GeminiServiceError(
-      'พบรายการที่ไม่ใช่วัตถุดิบ กรุณานำออกก่อนสร้างเมนู',
+      'ไม่พบวัตถุดิบที่รับประทานได้ กรุณาเพิ่มวัตถุดิบแล้วลองใหม่',
       400,
       invalidIngredients,
     );
   }
 
-  return { cleanedIngredients, cleanedNotes };
+  return { cleanedIngredients: edibleIngredients, cleanedNotes, invalidIngredients };
 }
 
 async function requestGeminiJson({ prompt, schema, maxOutputTokens }) {
@@ -299,7 +305,7 @@ async function requestGeminiJson({ prompt, schema, maxOutputTokens }) {
 }
 
 async function generateRecipeIdea({ ingredients, notes }) {
-  const { cleanedIngredients, cleanedNotes } = await validateAndCleanRecipeRequest({ ingredients, notes });
+  const { cleanedIngredients, cleanedNotes, invalidIngredients } = await validateAndCleanRecipeRequest({ ingredients, notes });
   const response = await requestGeminiJson({
     prompt: buildRecommendationsPrompt({ ingredients: cleanedIngredients, notes: cleanedNotes }),
     schema: buildRecommendationsSchema(),
@@ -311,7 +317,12 @@ async function generateRecipeIdea({ ingredients, notes }) {
     throw new GeminiServiceError('Gemini ไม่ได้ส่งเมนูที่แตกต่างกันครบ 5 เมนู');
   }
 
-  return { provider: 'gemini', recipes };
+  return {
+    provider: 'gemini',
+    recipes,
+    ingredients: cleanedIngredients,
+    invalidIngredients,
+  };
 }
 
 async function generateRecipeDetails({ ingredients, notes, selectedRecipe }) {

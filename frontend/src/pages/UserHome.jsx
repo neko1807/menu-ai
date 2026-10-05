@@ -83,6 +83,7 @@ function UserHome() {
   const [favoritesLoading, setFavoritesLoading] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
   const [favoriteMessage, setFavoriteMessage] = useState('');
+  const [openedFromFavorite, setOpenedFromFavorite] = useState(false);
 
   const ingredients = useMemo(() => parseIngredients(inputText), [inputText]);
   const preferenceNotes = useMemo(() => buildPreferenceNotes(preferences), [preferences]);
@@ -157,6 +158,7 @@ function UserHome() {
     setAiRecipes([]);
     setFavorites([]);
     setFavoriteMessage('');
+    setOpenedFromFavorite(false);
   }
 
   async function handleAiGenerate() {
@@ -175,6 +177,7 @@ function UserHome() {
     setAiError('');
     setInvalidIngredients([]);
     setAiRecipe(null);
+    setOpenedFromFavorite(false);
     setAiRecipes([]);
     setRecommendationId(null);
     setSelectedRecipeIndex(0);
@@ -256,6 +259,7 @@ function UserHome() {
 
       setAiRecipe(data.recipeIdea);
       setFavoriteMessage('');
+      setOpenedFromFavorite(false);
     } catch (error) {
       setAiError(error.message || 'ไม่สามารถเชื่อมต่อ Gemini ได้ กรุณาลองใหม่');
     } finally {
@@ -490,6 +494,7 @@ function UserHome() {
                     onClick={() => {
                       setSelectedRecipeIndex(index);
                       setAiRecipe(null);
+                      setOpenedFromFavorite(false);
                     }}
                     className={`rounded-2xl border p-4 text-left transition ${
                       isSelected
@@ -586,18 +591,20 @@ function UserHome() {
               </div>
             </div>
 
-            <div className="mt-6 flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={handleSaveFavorite}
-                disabled={favoriteLoading}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-5 py-3 font-semibold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {favoriteLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <ClipboardCheck className="h-5 w-5" />}
-                {favoriteLoading ? 'กำลังบันทึก...' : 'บันทึกเมนูโปรด'}
-              </button>
-              {favoriteMessage ? <p className="text-sm text-emerald-200">{favoriteMessage}</p> : null}
-            </div>
+            {!openedFromFavorite ? (
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleSaveFavorite}
+                  disabled={favoriteLoading}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-5 py-3 font-semibold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {favoriteLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <ClipboardCheck className="h-5 w-5" />}
+                  {favoriteLoading ? 'กำลังบันทึก...' : 'บันทึกเมนูโปรด'}
+                </button>
+                {favoriteMessage ? <p className="text-sm text-emerald-200">{favoriteMessage}</p> : null}
+              </div>
+            ) : null}
 
             <p className="mt-4 text-xs text-slate-500">แหล่งผลลัพธ์: Gemini</p>
           </section>
@@ -622,6 +629,7 @@ function UserHome() {
                     type="button"
                     onClick={() => {
                       setAiRecipe(favorite.recipe);
+                      setOpenedFromFavorite(true);
                       setFavoriteMessage('เปิดรายละเอียดจากเมนูโปรดแล้ว');
                       document.getElementById('recipe-result')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                     }}

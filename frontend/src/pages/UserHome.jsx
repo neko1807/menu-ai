@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, CheckCircle2, ClipboardCheck, Clock3, Loader2, Sparkles, UtensilsCrossed } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ClipboardCheck, Clock3, Loader2, Sparkles, Trash2, UtensilsCrossed } from 'lucide-react';
 import TopNav from '../components/layout/TopNav';
 import AuthDialog from '../components/auth/AuthDialog';
 import { API_BASE_URL } from '../config/api';
@@ -82,6 +82,7 @@ function UserHome() {
   const [favorites, setFavorites] = useState([]);
   const [favoritesLoading, setFavoritesLoading] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const [deletingFavoriteId, setDeletingFavoriteId] = useState(null);
   const [favoriteMessage, setFavoriteMessage] = useState('');
   const [openedFromFavorite, setOpenedFromFavorite] = useState(false);
 
@@ -292,6 +293,28 @@ function UserHome() {
       setFavoriteMessage(error.message || 'ไม่สามารถบันทึกเมนูโปรดได้');
     } finally {
       setFavoriteLoading(false);
+    }
+  }
+
+  async function handleDeleteFavorite(favoriteId) {
+    setDeletingFavoriteId(favoriteId);
+    setFavoriteMessage('');
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/favorites/${favoriteId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (!response.ok) {
+        const data = await parseJsonResponse(response);
+        throw new Error(data.message || 'ไม่สามารถลบเมนูโปรดได้');
+      }
+
+      setFavorites((current) => current.filter((favorite) => favorite.id !== favoriteId));
+      setFavoriteMessage('ลบเมนูออกจากรายการโปรดแล้ว');
+    } catch (error) {
+      setFavoriteMessage(error.message || 'ไม่สามารถลบเมนูโปรดได้');
+    } finally {
+      setDeletingFavoriteId(null);
     }
   }
 
@@ -624,24 +647,35 @@ function UserHome() {
             ) : favorites.length ? (
               <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {favorites.map((favorite) => (
-                  <button
-                    key={favorite.id}
-                    type="button"
-                    onClick={() => {
-                      setAiRecipe(favorite.recipe);
-                      setOpenedFromFavorite(true);
-                      setFavoriteMessage('เปิดรายละเอียดจากเมนูโปรดแล้ว');
-                      document.getElementById('recipe-result')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }}
-                    className="rounded-2xl border border-white/10 bg-slate-950/45 p-4 text-left transition hover:border-emerald-400/40"
-                  >
-                    <p className="font-semibold text-white">{favorite.recipe.title}</p>
-                    {favorite.recipe.summary ? <p className="mt-1 text-sm leading-6 text-slate-400">{favorite.recipe.summary}</p> : null}
-                    <p className="mt-3 text-xs text-emerald-200">
-                      บันทึกเมื่อ {new Date(favorite.savedAt).toLocaleDateString('th-TH', { dateStyle: 'medium' })}
-                      {Number.isFinite(favorite.recipe.estimatedCookingTime) ? ` · ${favorite.recipe.estimatedCookingTime} นาที` : ''}
-                    </p>
-                  </button>
+                  <article key={favorite.id} className="rounded-2xl border border-white/10 bg-slate-950/45 p-4 transition hover:border-emerald-400/40">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAiRecipe(favorite.recipe);
+                        setOpenedFromFavorite(true);
+                        setFavoriteMessage('เปิดรายละเอียดจากเมนูโปรดแล้ว');
+                        document.getElementById('recipe-result')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }}
+                      className="w-full text-left"
+                    >
+                      <p className="font-semibold text-white">{favorite.recipe.title}</p>
+                      {favorite.recipe.summary ? <p className="mt-1 text-sm leading-6 text-slate-400">{favorite.recipe.summary}</p> : null}
+                      <p className="mt-3 text-xs text-emerald-200">
+                        บันทึกเมื่อ {new Date(favorite.savedAt).toLocaleDateString('th-TH', { dateStyle: 'medium' })}
+                        {Number.isFinite(favorite.recipe.estimatedCookingTime) ? ` · ${favorite.recipe.estimatedCookingTime} นาที` : ''}
+                      </p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteFavorite(favorite.id)}
+                      disabled={deletingFavoriteId === favorite.id}
+                      aria-label={`ลบเมนู ${favorite.recipe.title} จากรายการโปรด`}
+                      className="mt-3 inline-flex items-center gap-2 rounded-lg border border-rose-400/25 px-3 py-2 text-sm text-rose-200 transition hover:bg-rose-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {deletingFavoriteId === favorite.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                      ลบเมนูโปรด
+                    </button>
+                  </article>
                 ))}
               </div>
             ) : (

@@ -1,4 +1,4 @@
-const { listFavoriteRecipes, saveFavoriteRecipe } = require('../services/favoriteRecipeService');
+const { deleteFavoriteRecipe, listFavoriteRecipes, saveFavoriteRecipe } = require('../services/favoriteRecipeService');
 
 async function createFavorite(req, res, next) {
   try {
@@ -26,4 +26,22 @@ async function getFavorites(req, res, next) {
   }
 }
 
-module.exports = { createFavorite, getFavorites };
+async function removeFavorite(req, res, next) {
+  const favoriteId = Number(req.params.id);
+  if (!Number.isSafeInteger(favoriteId) || favoriteId < 1) {
+    return res.status(400).json({ message: 'รหัสเมนูโปรดไม่ถูกต้อง' });
+  }
+
+  try {
+    const deleted = await deleteFavoriteRecipe(req.auth.userId, favoriteId);
+    if (!deleted) {
+      return res.status(404).json({ message: 'ไม่พบเมนูโปรดที่ต้องการลบ' });
+    }
+
+    return res.status(204).end();
+  } catch (error) {
+    return next(error);
+  }
+}
+
+module.exports = { createFavorite, getFavorites, removeFavorite };

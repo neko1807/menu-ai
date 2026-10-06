@@ -71,4 +71,17 @@ async function listFavoriteRecipes(userId) {
   return result.rows.map(toFavorite).filter((favorite) => favorite.recipe);
 }
 
-module.exports = { listFavoriteRecipes, saveFavoriteRecipe };
+async function deleteFavoriteRecipe(userId, favoriteId) {
+  const result = await database.query(
+    `
+      DELETE FROM favorite_recipes
+      WHERE user_id = $1 AND id = $2
+      RETURNING id
+    `,
+    [userId, favoriteId],
+  );
+
+  return result.rowCount > 0;
+}
+
+module.exports = { deleteFavoriteRecipe, listFavoriteRecipes, saveFavoriteRecipe };
